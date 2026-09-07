@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MahaPashu | Livestock Health Platform</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body class="bg-slate-50 min-h-screen flex flex-col font-sans text-slate-800">
+
+    <!-- Enterprise Navigation Bar -->
+    <nav class="bg-emerald-800 text-white shadow-lg sticky top-0 z-50">
+        <div class="max-w-6xl mx-auto px-4">
+            <div class="flex justify-between items-center py-4">
+                <div class="flex items-center space-x-2">
+                    <i class="fa-solid fa-cow text-2xl"></i>
+                    <span class="font-bold text-xl tracking-wide">MahaPashu Portal</span>
+                </div>
+                <div class="hidden md:flex space-x-8 font-medium text-sm">
+                    <a href="/" class="text-emerald-200 border-b-2 border-emerald-200 pb-1"><i class="fa-solid fa-stethoscope mr-1"></i> Triage</a>
+                    <a href="/vaccines" class="hover:text-emerald-200 transition"><i class="fa-solid fa-syringe mr-1"></i> Vaccines</a>
+                    <a href="/tele-vet" class="hover:text-emerald-200 transition"><i class="fa-solid fa-user-doctor mr-1"></i> Tele-Vet</a>
+                    <a href="/admin" class="hover:text-emerald-200 transition"><i class="fa-solid fa-chart-pie mr-1"></i> Dashboard</a>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Content Area -->
+    <main class="flex-grow flex items-center justify-center p-6">
+        <div class="w-full max-w-xl bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+            
+            <!-- Header Section -->
+            <div class="bg-slate-100 p-6 border-b border-slate-200">
+                <h1 class="text-2xl font-bold text-emerald-900"><i class="fa-solid fa-microscope text-emerald-600 mr-2"></i> AI Disease Triage</h1>
+                <p class="text-sm text-slate-500 mt-1">Upload symptoms and imagery for instant preliminary diagnosis.</p>
+            </div>
+            
+            <!-- Form Section -->
+            <form id="triageForm" class="p-6 space-y-5">
+                <div>
+                    <label class="block text-sm font-semibold text-slate-700 mb-1">Clinical Symptoms</label>
+                    <input type="text" id="symptoms" placeholder="e.g., high fever, lack of appetite, skin lesions" class="w-full border border-slate-300 px-4 py-2 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none transition" required>
+                </div>
+                
+                <div>
+                    <label class="block text-sm font-semibold text-slate-700 mb-1">Visual Evidence (Optional)</label>
+                    <div class="flex space-x-2">
+                        <input type="file" id="image" class="w-full border border-slate-300 px-4 py-2 rounded-lg bg-slate-50 text-sm file:mr-4 file:py-1 file:px-3 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-emerald-100 file:text-emerald-700 hover:file:bg-emerald-200 transition" accept="image/*">
+                        <button type="button" id="startCamera" class="bg-slate-200 text-slate-700 px-4 py-2 rounded-lg hover:bg-slate-300 transition shadow-sm" title="Open Camera">
+                            <i class="fa-solid fa-camera"></i>
+                        </button>
+                    </div>
+                    
+                    <div id="cameraContainer" class="hidden mt-4 flex flex-col items-center bg-slate-900 p-2 rounded-lg">
+                        <video id="videoFeed" class="w-full max-w-sm rounded" autoplay></video>
+                        <button type="button" id="snapPhoto" class="mt-3 w-full bg-emerald-600 text-white font-bold px-4 py-2 rounded hover:bg-emerald-700 transition"><i class="fa-solid fa-camera-retro mr-2"></i>Capture Frame</button>
+                        <canvas id="canvas" class="hidden"></canvas>
+                    </div>
+                </div>
+                
+                <button type="submit" id="submitBtn" class="w-full bg-emerald-700 text-white font-bold text-lg px-4 py-3 rounded-lg hover:bg-emerald-800 transition shadow-md flex justify-center items-center">
+                    <span id="btnText">Run AI Diagnosis</span>
+                    <i id="btnSpinner" class="fa-solid fa-circle-notch fa-spin hidden ml-2"></i>
+                </button>
+            </form>
+
+            <!-- Results Section -->
+            <div id="resultBox" class="hidden border-t border-slate-200 bg-emerald-50 p-6">
+                <h3 class="font-bold text-sm uppercase tracking-wider text-emerald-800 mb-3"><i class="fa-solid fa-clipboard-check mr-2"></i>Analysis Complete</h3>
+                <div class="bg-white p-4 rounded-lg shadow-sm border border-emerald-100">
+                    <p id="diagnosisText" class="text-slate-800 font-semibold text-lg"></p>
+                    <div class="mt-3 flex items-start text-rose-700 bg-rose-50 p-3 rounded-md border border-rose-100">
+                        <i class="fa-solid fa-triangle-exclamation mt-1 mr-2"></i>
+                        <p id="actionText" class="text-sm font-medium"></p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Footer -->
+    <footer class="bg-slate-800 text-slate-400 text-center py-4 text-xs">
+        <p>&copy; 2026 Smart India Hackathon Prototype | SIH26128</p>
+    </footer>
+
+    <script>
+        const video = document.getElementById('videoFeed');
+        const canvas = document.getElementById('canvas');
+        let stream = null;
+        let capturedBlob = null;
+
+        // Camera Logic
+        document.getElementById('startCamera').addEventListener('click', async () => {
+            document.getElementById('cameraContainer').classList.remove('hidden');
+            stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } });
+            video.srcObject = stream;
+        });
+
+        document.getElementById('snapPhoto').addEventListener('click', () => {
+            canvas.width = video.videoWidth;
+            canvas.height = video.videoHeight;
+            canvas.getContext('2d').drawImage(video, 0, 0);
+            canvas.toBlob(blob => {
+                capturedBlob = blob;
+                stream.getTracks().forEach(track => track.stop());
+                document.getElementById('cameraContainer').classList.add('hidden');
+                
+                // Visual feedback that photo was taken
+                const startCamBtn = document.getElementById('startCamera');
+                startCamBtn.classList.replace('bg-slate-200', 'bg-emerald-200');
+                startCamBtn.classList.replace('text-slate-700', 'text-emerald-800');
+                startCamBtn.innerHTML = '<i class="fa-solid fa-check"></i>';
+            }, 'image/jpeg');
+        });
+
+        // Form Submission Logic
+        document.getElementById('triageForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            // UI Loading State
+            const btnText = document.getElementById('btnText');
+            const btnSpinner = document.getElementById('btnSpinner');
+            const submitBtn = document.getElementById('submitBtn');
+            
+            submitBtn.disabled = true;
+            submitBtn.classList.add('opacity-75');
+            btnText.innerText = "Analyzing Data...";
+            btnSpinner.classList.remove('hidden');
+            
+            const formData = new FormData();
+            formData.append('symptoms', document.getElementById('symptoms').value);
+            
+            if (capturedBlob) {
+                formData.append('image', capturedBlob, 'camera_capture.jpg');
+            } else {
+                const imageFile = document.getElementById('image').files[0];
+                if (imageFile) formData.append('image', imageFile);
+            }
+
+            // Simulate slight network delay for professional feel, then fetch
+            setTimeout(async () => {
+                const response = await fetch('/api/triage', {
+                    method: 'POST',
+                    body: formData
+                });
+                const data = await response.json();
+                
+                // Reset UI & Show Results
+                submitBtn.disabled = false;
+                submitBtn.classList.remove('opacity-75');
+                btnText.innerText = "Run AI Diagnosis";
+                btnSpinner.classList.add('hidden');
+                
+                document.getElementById('resultBox').classList.remove('hidden');
+                document.getElementById('diagnosisText').innerText = data.diagnosis;
+                document.getElementById('actionText').innerText = "Action required: " + data.recommended_action;
+            }, 600); // 600ms artificial delay
+        });
+    </script>
+</body>
+</html>
